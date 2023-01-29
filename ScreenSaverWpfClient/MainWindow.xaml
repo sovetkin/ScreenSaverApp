@@ -1,0 +1,101 @@
+﻿<Window x:Class="ScreenSaverWpfClient.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:ScreenSaverWpfClient"
+        xmlns:model="clr-namespace:ScreenSaverWpfClient.Model"
+        xmlns:vm="clr-namespace:ScreenSaverWpfClient.ViewModel"
+        xmlns:converters="clr-namespace:ScreenSaverWpfClient.Infrastructure"
+        xmlns:system="clr-namespace:System;assembly=mscorlib"
+        mc:Ignorable="d"
+        Title="MainWindow" Height="613" Width="848"
+        MinWidth="820"
+        MinHeight="600">
+    <Window.Resources>
+        <system:Double x:Key="AddTwenty">20</system:Double>
+        <system:Double x:Key="MinusTen">-10</system:Double>
+        <system:Double x:Key="AddTen">10</system:Double>
+        <converters:RatioShapeConverter x:Key="RatioShapeConverter"/>
+    </Window.Resources>
+    <Window.DataContext>
+        <vm:MainViewModel x:Name="Data"/>
+    </Window.DataContext>
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="auto" />
+        </Grid.RowDefinitions>
+        <Canvas Name="Canvas"
+                Width="{Binding CanvasSize.Width, Converter={StaticResource RatioShapeConverter}, ConverterParameter={StaticResource AddTwenty}}"
+                Height="{Binding CanvasSize.Height, Converter={StaticResource RatioShapeConverter}, ConverterParameter={StaticResource AddTwenty}}">
+            <Rectangle Width="10"
+                       Height="{Binding ElementName=Canvas, Path=ActualHeight}"
+                       Fill="DimGray"/>
+            <Rectangle Width="{Binding ElementName=Canvas, Path=ActualWidth}"
+                       Height="10"
+                       Fill="DimGray"/>
+            <Rectangle Canvas.Left="{Binding ElementName=Canvas, Path=ActualWidth, Converter={StaticResource RatioShapeConverter}, ConverterParameter={StaticResource MinusTen}}"
+                       Width="10"
+                       Height="{Binding ElementName=Canvas, Path=ActualHeight}"
+                       Fill="DimGray"/>
+            <Rectangle Canvas.Top="{Binding ElementName=Canvas, Path=ActualHeight, Converter={StaticResource RatioShapeConverter}, ConverterParameter={StaticResource MinusTen}}"
+                       Width="{Binding ElementName=Canvas, Path=ActualWidth}"
+                       Height="10"
+                       Fill="DimGray"/>
+            <ItemsControl Grid.Row="0"
+                          ItemsSource="{Binding Path=RectangleCollection, AsyncState=True}"
+                          Width="{Binding CanvasSize.Width}" Height="{Binding CanvasSize.Height}"
+                          Margin="10 10">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <Canvas/>
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate DataType="{x:Type model:RectangleModel}">
+                        <Rectangle Width="{Binding Size.Width}"
+                                   Height="{Binding Size.Height}"
+                                   Fill="AliceBlue"
+                                   Stroke="Black"
+                                   StrokeThickness="1">
+                            <Rectangle.Resources>
+                                <TranslateTransform x:Key="CurrentPosition"
+                                                    X="{Binding Coordinate.X}"
+                                                    Y="{Binding Coordinate.Y}"/>
+                            </Rectangle.Resources>
+                            <Rectangle.RenderTransform>
+                                <TranslateTransform X="{Binding Source={StaticResource CurrentPosition}, Path=X}" Y="{Binding Source={StaticResource CurrentPosition}, Path=Y}" />
+                            </Rectangle.RenderTransform>
+                        </Rectangle>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </Canvas>
+        <Grid Grid.Row="1">
+            <StackPanel Orientation="Horizontal">
+                <Grid>
+                    <StackPanel VerticalAlignment="Stretch" Orientation="Horizontal">
+                        <Label Content="Кол-во прямоугольников:" VerticalAlignment="Center"/>
+                        <TextBox Text="{Binding RectangleCount, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                 MinWidth="50"
+                                 Margin="0 8"
+                                 VerticalAlignment="Center"
+                                 TextAlignment="Center"
+                                 FontSize="14"
+                                 ToolTip="{Binding RelativeSource={RelativeSource self}, Path=(Validation.Errors)[0].ErrorContent[0]}"/>
+                    </StackPanel>
+                </Grid>
+                <Button Content="Begin"
+                    Padding="5"
+                    Margin="10"
+                    Command="{Binding Path=StartCommand}"/>
+                <Button Content="Stop"
+                    Padding="5"
+                    Margin="10"
+                    Command="{Binding Path=StopCommand}"/>
+            </StackPanel>
+        </Grid>
+    </Grid>
+</Window>

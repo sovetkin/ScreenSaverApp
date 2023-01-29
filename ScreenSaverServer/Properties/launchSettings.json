@@ -1,0 +1,19 @@
+﻿{
+  "profiles": {
+    "ScreenSaver": {
+      "commandName": "Project",
+      "launchBrowser": false,
+      "applicationUrl": "https://localhost:5001",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      }
+    }
+  },
+  "Config": {
+    "CanvasHeight": 500,
+    "CanvasWidth": 800,
+    "RectangleHeight": 10,
+    "RectangleWidth": 10,
+    "ThreadsCount" : 1
+  }
+}

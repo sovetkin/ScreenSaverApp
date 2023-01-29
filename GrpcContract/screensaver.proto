@@ -1,0 +1,52 @@
+syntax = "proto3";
+
+import "google/protobuf/empty.proto";
+
+option csharp_namespace = "ScreenSaver";
+
+package saver;
+
+service ScreenSaver {
+  rpc GetCanvasBoundaries (google.protobuf.Empty) returns (CanvasBoundariesMessage);
+  
+  rpc GetNewPosition (IdRequestMessage) returns (stream RectanglePoint);
+  rpc GetRectangleList (RectangleCountMessage) returns (stream RectangleModelMessage);
+  
+  rpc GetRectangle (google.protobuf.Empty) returns (RectangleModelMessage);
+  rpc GetRectangleCurrentPosition (IdRequestMessage) returns (stream RectanglePoint);
+
+  rpc DuplexRectangleStream (stream RectangleModelMessage) returns ( stream RectangleModelMessage);
+}
+
+message RectangleCountMessage {
+    int32 count = 1;
+}
+
+message CanvasBoundariesMessage {
+  double width = 1;
+  double height = 2;
+}
+
+message ReplyModel {
+    repeated RectangleModelMessage list = 1;
+}
+
+message RectangleModelMessage {
+  RectangleSize size = 1;
+  RectanglePoint coordinate = 2;
+  int32 id = 3;
+}
+
+message RectangleSize {
+    double width = 1;
+    double height = 2;
+}
+
+message RectanglePoint {
+    double x = 1;
+    double y = 2;
+}
+
+message IdRequestMessage {
+    int32 id = 1;
+}
