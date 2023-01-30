@@ -28,7 +28,7 @@ namespace ScreenSaverWpfClient.DataAccess
 
         private GrpcChannel _channel;
         private ObservableCollection<RectangleModel> _collection;
-        private CancellationTokenSource _cts = new();
+        private CancellationTokenSource _cts;
         #endregion
 
         #region Public constructions
@@ -55,6 +55,7 @@ namespace ScreenSaverWpfClient.DataAccess
         public async Task StartDataStreamingAsync(int rectangleCount, ObservableCollection<RectangleModel> collection)
         {
             _collection = collection;
+            _cts = new();
 
             List<Task> tasks = new();
 
@@ -199,7 +200,11 @@ namespace ScreenSaverWpfClient.DataAccess
         }
 
         public void Dispose() => Dispose(true);
-
+        
+        ~RectangleDataProvider()
+        {
+            Dispose(true);
+        }
         #endregion;
     }
 }
