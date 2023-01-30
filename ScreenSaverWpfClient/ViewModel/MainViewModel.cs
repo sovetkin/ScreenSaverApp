@@ -37,6 +37,7 @@ namespace ScreenSaverWpfClient.ViewModel
             _collection = new ObservableCollection<RectangleModel>();
             StartCommand = new AsyncRelayCommand(OnStartCommand);
             StopCommand = new RelayCommand(OnStopCommand);
+            ExitCommand = new RelayCommand(OnExitCommand);
             _data = new();
             _errorsByPropertyName = new Dictionary<string, List<string>>();
         }
@@ -46,6 +47,7 @@ namespace ScreenSaverWpfClient.ViewModel
         #region Public Commands
         public ICommand StartCommand { get; }
         public ICommand StopCommand { get; }
+        public ICommand ExitCommand { get; }
         #endregion
 
         #region Public Properties
@@ -107,6 +109,12 @@ namespace ScreenSaverWpfClient.ViewModel
                 await _data.StartDataStreamingAsync(RectangleCount, RectangleCollection);
                 _isStartComandRunning = true;
             }
+        }
+        
+        private void OnExitCommand()
+        {
+            _data.GenerateCancelationToken();
+            System.Windows.Application.Current.Shutdown();
         }
 
         private void AddErrors(string propName, string error)
