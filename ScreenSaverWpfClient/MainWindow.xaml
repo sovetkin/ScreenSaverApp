@@ -88,13 +88,18 @@
                     </StackPanel>
                 </Grid>
                 <Button Content="Begin"
-                    Padding="5"
-                    Margin="10"
-                    Command="{Binding Path=StartCommand}"/>
+                        Padding="5"
+                        Margin="10"
+                        Command="{Binding Path=StartCommand}"/>
                 <Button Content="Stop"
-                    Padding="5"
-                    Margin="10"
-                    Command="{Binding Path=StopCommand}"/>
+                        Padding="5"
+                        Margin="10"
+                        Command="{Binding Path=StopCommand}"/>
+                <Button Content="Exit"
+                        HorizontalAlignment="Right"
+                        Padding="5"
+                        Margin="10"
+                        Command="{Binding Path=ExitCommand}"/>
             </StackPanel>
         </Grid>
     </Grid>
