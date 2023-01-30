@@ -97,6 +97,7 @@ namespace ScreenSaverWpfClient.ViewModel
         {
             _data.GenerateCancelationToken();
             _isStartComandRunning = false;
+            RectangleCollection = new();
         }
 
         private async Task OnStartCommand()

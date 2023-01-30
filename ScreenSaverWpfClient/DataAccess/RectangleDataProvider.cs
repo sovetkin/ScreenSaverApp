@@ -24,6 +24,8 @@ namespace ScreenSaverWpfClient.DataAccess
     class RectangleDataProvider : IDisposable
     {
         #region Private Fields
+        private bool _disposedValue;
+
         private GrpcChannel _channel;
         private ObservableCollection<RectangleModel> _collection;
         private CancellationTokenSource _cts = new();
@@ -43,8 +45,6 @@ namespace ScreenSaverWpfClient.DataAccess
         public void GenerateCancelationToken()
         {
             _cts.Cancel();
-            if (_collection is not null)
-                _collection = new();
         }
 
         /// <summary>
@@ -180,12 +180,25 @@ namespace ScreenSaverWpfClient.DataAccess
         /// <param name="rectangle"></param>
         /// <returns></returns>
         private async Task WriteToStreamAsync(IClientStreamWriter<RectangleModelMessage> requestStream, RectangleModelMessage rectangle) =>
-            await requestStream.WriteAsync(rectangle); 
+            await requestStream.WriteAsync(rectangle);
         #endregion
 
         #region IDisposable contract implementation
 
-        public void Dispose() => _channel.ShutdownAsync();
+        protected virtual void Dispose(bool disposing)
+        {
+            if (!_disposedValue)
+            {
+                if (disposing)
+                {
+                    _channel.ShutdownAsync();
+                }
+
+                _disposedValue = true;
+            }
+        }
+
+        public void Dispose() => Dispose(true);
 
         #endregion;
     }
