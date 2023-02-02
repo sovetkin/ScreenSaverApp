@@ -1,6 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -12,7 +10,6 @@ using ScreenSaver;
 using ScreenSaverServer.BussinessLogic.Enums;
 using ScreenSaverServer.BussinessLogic.Interfaces;
 using ScreenSaverServer.BussinessLogic.Models;
-using ScreenSaverServer.Extensions;
 
 namespace ScreenSaverServer.BussinessLogic
 {
@@ -24,8 +21,9 @@ namespace ScreenSaverServer.BussinessLogic
         private Random _rnd = new();
         private readonly IRectangleRepository _repository;
         private readonly Config _options;
+        private object _locker;
 
-        public RectangleUpdater(IOptions<Config> options,IRectangleRepository repository, ILogger<RectangleUpdater> logger)
+        public RectangleUpdater(IOptions<Config> options, IRectangleRepository repository, ILogger<RectangleUpdater> logger)
         {
             _repository = repository;
             _options = options.Value;
@@ -38,14 +36,9 @@ namespace ScreenSaverServer.BussinessLogic
         /// <returns></returns>
         public async Task StartAsync(CancellationToken token)
         {
-            var tasks = new Task[_options.ThreadsCount];
-
-            for (int i = 0; i < tasks.Length; i++)
+            for (int i = 0; i < _options.ThreadsCount; i++)
             {
-                new Thread(() => TracePath(token)).Start();
-
-                //tasks[i].Start();
-                //_ = await Task.Factory.StartNew(TracePath, token);
+                await Task.Factory.StartNew(TracePath, token);
             }
         }
 
@@ -60,14 +53,14 @@ namespace ScreenSaverServer.BussinessLogic
 
             while (!tkn.IsCancellationRequested)
             {
-                for (int i = 0; i < _repository.Rectangles.Count; i++)
+                for (int i = 0; i < _repository.Count; i++)
                 {
-                    await Task.Delay(TimeSpan.FromMilliseconds(10));
-                    await SetNewCoordinate(i);
+                    //await Task.Delay(TimeSpan.FromMilliseconds(10));
+
+                    if (_repository.IsCalculationRequired(i))
+                        await SetNewCoordinate(i);
                 }
             }
-
-            _repository.Clear();
         }
 
         /// <summary>
@@ -77,7 +70,9 @@ namespace ScreenSaverServer.BussinessLogic
         /// <returns></returns>
         private async Task SetNewCoordinate(int index)
         {
-            await _repository.UpdateCoordinateAsync(index, await GetNewPosition(_repository[index]));
+            RectangleModel rectangle = await _repository.GetRectangleByIdAsync(index);
+            (RectanglePoint, MoveDirection) value = await GetNewPosition(rectangle);
+            await _repository.UpdateCoordinateAsync(index, value);
         }
 
         /// <summary>
@@ -85,17 +80,12 @@ namespace ScreenSaverServer.BussinessLogic
         /// </summary>
         /// <param name="rectangle"></param>
         /// <returns></returns>
-        private async Task<RectanglePoint> GetNewPosition(RectangleModel rectangle)
+        private async Task<(RectanglePoint, MoveDirection)> GetNewPosition(RectangleModel rectangle)
         {
-            return await GetReflection(rectangle) switch
-            {
-                MoveDirection.UpLeft => rectangle.Coordinate.Offset((-1, -1)),
-                MoveDirection.UpRight => rectangle.Coordinate.Offset((1, -1)),
-                MoveDirection.DownLeft => rectangle.Coordinate.Offset((-1, 1)),
-                MoveDirection.DownRight => rectangle.Coordinate.Offset((1, 1)),
-                MoveDirection.None => rectangle.Coordinate,
-                _ => throw new NotImplementedException()
-            };
+            MoveDirection move = await GetReflection(rectangle);
+            RectanglePoint point = await CalculateNewCoordinate(rectangle.Coordinate, move);
+
+            return (point, move);
         }
 
         /// <summary>
@@ -106,36 +96,23 @@ namespace ScreenSaverServer.BussinessLogic
         private async Task<MoveDirection> GetReflection(RectangleModel rectangle)
         {
             if (rectangle.Coordinate.X <= 0)
-            {
-                rectangle.Direction = rectangle.Direction == MoveDirection.DownLeft ? MoveDirection.DownRight : MoveDirection.UpRight;
-                await _repository.UpdateRectangleDirectionAsync(rectangle);
-                return rectangle.Direction;
-            }
-            if (rectangle.Coordinate.X + rectangle.Size.Width >= 800)
-            {
-                rectangle.Direction = rectangle.Direction == MoveDirection.UpRight ? MoveDirection.UpLeft : MoveDirection.DownLeft;
-                await _repository.UpdateRectangleDirectionAsync(rectangle);
-                return rectangle.Direction;
-            }
-            if (rectangle.Coordinate.Y <= 0)
-            {
-                rectangle.Direction = rectangle.Direction == MoveDirection.UpRight ? MoveDirection.DownRight : MoveDirection.DownLeft;
-                await _repository.UpdateRectangleDirectionAsync(rectangle);
-                return rectangle.Direction;
-            }
-            if (rectangle.Coordinate.Y + rectangle.Size.Height >= 500)
-            {
-                rectangle.Direction = rectangle.Direction == MoveDirection.DownRight ? MoveDirection.UpRight : MoveDirection.UpLeft;
-                await _repository.UpdateRectangleDirectionAsync(rectangle);
-                return rectangle.Direction;
-            }
+                return await Task.Run(() => rectangle.Direction == MoveDirection.DownLeft ? MoveDirection.DownRight : MoveDirection.UpRight);
 
-            return rectangle.Direction = rectangle.Direction == MoveDirection.None ?
-                                         RandomDirection((int)MoveDirection.DownLeft,
-                                                         (int)MoveDirection.DownRight,
-                                                         (int)MoveDirection.UpLeft,
-                                                         (int)MoveDirection.UpRight) :
-                                         rectangle.Direction;
+            if (rectangle.Coordinate.X + rectangle.Size.Width >= 800)
+                return await Task.Run(() => rectangle.Direction == MoveDirection.UpRight ? MoveDirection.UpLeft : MoveDirection.DownLeft);
+
+            if (rectangle.Coordinate.Y <= 0)
+                return await Task.Run(() => rectangle.Direction == MoveDirection.UpRight ? MoveDirection.DownRight : MoveDirection.DownLeft);
+
+            if (rectangle.Coordinate.Y + rectangle.Size.Height >= 500)
+                return await Task.Run(() => rectangle.Direction == MoveDirection.DownRight ? MoveDirection.UpRight : MoveDirection.UpLeft);
+
+            return await Task.Run(() => rectangle.Direction == MoveDirection.None ?
+                                                 RandomDirection((int)MoveDirection.DownLeft,
+                                                                 (int)MoveDirection.DownRight,
+                                                                 (int)MoveDirection.UpLeft,
+                                                                 (int)MoveDirection.UpRight) :
+                                                 rectangle.Direction);
         }
 
         /// <summary>
@@ -144,5 +121,78 @@ namespace ScreenSaverServer.BussinessLogic
         /// <param name="values"></param>
         /// <returns></returns>
         private MoveDirection RandomDirection(params int[] values) => (MoveDirection)values[_rnd.Next(values.Length)];
+
+        private async Task<RectanglePoint> CalculateNewCoordinate(RectanglePoint coordinate, MoveDirection direction)
+        {
+            double deltaY;
+            double deltaX;
+            RectanglePoint point = new();
+
+            switch (direction)
+            {
+                case MoveDirection.None:
+                    break;
+                case MoveDirection.UpLeft:
+                    deltaY = coordinate.Y;
+                    deltaX = coordinate.X;
+                    if (deltaY > deltaX)
+                    {
+                        point.Y = coordinate.Y - deltaX;
+                        point.X = 0;
+                    }
+                    else
+                    {
+                        point.Y = 0;
+                        point.X = coordinate.X - deltaY;
+                    }
+                    break;
+                case MoveDirection.UpRight:
+                    deltaY = coordinate.Y;
+                    deltaX = _options.CanvasWidth - (coordinate.X + _options.RectangleWidth);
+                    if (deltaY > deltaX)
+                    {
+                        point.X = coordinate.X + deltaX;
+                        point.Y = coordinate.Y - deltaX;
+                    }
+                    else
+                    {
+                        point.X = coordinate.X + deltaY;
+                        point.Y = 0;
+                    }
+                    break;
+                case MoveDirection.DownLeft:
+                    deltaY = _options.CanvasHeight - (coordinate.Y + _options.RectangleHeight);
+                    deltaX = coordinate.X;
+                    if (deltaY > deltaX)
+                    {
+                        point.Y = coordinate.Y + deltaX;
+                        point.X = 0;
+                    }
+                    else
+                    {
+                        point.Y = coordinate.Y + deltaY;
+                        point.X = coordinate.X - deltaY;
+                    }
+                    break;
+                case MoveDirection.DownRight:
+                    deltaY = _options.CanvasHeight - (coordinate.Y + _options.RectangleHeight);
+                    deltaX = _options.CanvasWidth - (coordinate.X + _options.RectangleWidth);
+                    if (deltaY > deltaX)
+                    {
+                        point.Y = coordinate.Y + deltaX;
+                        point.X = _options.CanvasWidth - _options.RectangleWidth;
+                    }
+                    else
+                    {
+                        point.Y = coordinate.Y + deltaY;
+                        point.X = coordinate.X + deltaY;
+                    }
+                    break;
+                default:
+                    break;
+            }
+
+            return await Task.FromResult(point);
+        }
     }
 }

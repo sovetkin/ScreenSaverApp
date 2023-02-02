@@ -13,5 +13,6 @@ namespace ScreenSaverServer.BussinessLogic.Models
         public double RectangleHeight { get; set; }
         public double RectangleWidth { get; set; }
         public int ThreadsCount { get; set; }
+        public int RectangleCount { get; set; }
     }
 }

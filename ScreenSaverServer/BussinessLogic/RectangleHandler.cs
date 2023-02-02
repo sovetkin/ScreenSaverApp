@@ -1,8 +1,7 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
-
-using Grpc.Core;
 
 using Microsoft.Extensions.Options;
 
@@ -48,6 +47,10 @@ namespace ScreenSaverServer.BussinessLogic
         }
         #endregion
 
+        #region Public Properties
+        public CanvasBoundariesMessage BordersSize => _borders;
+        #endregion
+
         #region Public Methods
         /// <summary>
         /// Запускает расчет траеторий прямоугольников
@@ -56,51 +59,33 @@ namespace ScreenSaverServer.BussinessLogic
         /// <returns></returns>
         public async Task StartPathGeneration(CancellationToken token) => await _updater.StartAsync(token);
 
-        /// <summary>
-        /// Создает прямоугольник в хранилище и предоставляет начальные значения для прямоугольника
-        /// </summary>
-        /// <returns></returns>
-        public async Task<RectangleModelMessage> GetInitialRectangleAsync()
+        public async Task GenerateRepository()
         {
-            RectangleModel rectangle = new()
+            for (int i = 0; i < _options.RectangleCount; i++)
             {
-                Size = _recDefaultSize,
-                Coordinate = await GenerateRectangleInitialPositionAsync(),
-                Direction = Enums.MoveDirection.None
-            };
+                RectanglePoint coordinate = await GenerateRectangleInitialPositionAsync();
 
-            int index = await _repository.AddRectangleAsync(rectangle);
-
-            return new RectangleModelMessage()
-            {
-                Size = rectangle.Size,
-                Coordinate = rectangle.Coordinate,
-                Id = index
-            };
+                await _repository.AddRectangleAsync(coordinate, _recDefaultSize);
+            }
         }
 
-        /// <summary>
-        /// Предоставляет текущие позиции прямоугольника
-        /// </summary>
-        /// <param name="index"></param>
-        /// <returns></returns>
-        public RectanglePoint GetRectangleCurrentPosition(int index) => _repository.GetCoordinate(index);
+        public async Task<RectanglePoint> GetRectangleCurrentPosition(int index) => await _repository.GetCoordinateAsync(index);
 
-        /// <summary>
-        /// Записывет данные прямоугольника в стрим данных сервера
-        /// </summary>
-        /// <param name="current"></param>
-        /// <param name="responseStream"></param>
-        /// <returns></returns>
-        public async Task SendResponseMessageAsync(RectangleModelMessage current, IServerStreamWriter<RectangleModelMessage> responseStream)
+        public async IAsyncEnumerable<RectangleModelMessage> RectangleStrem()
         {
-            await responseStream.WriteAsync(new()
+            for (int i = 0; i < _repository.Count; i++)
             {
-                Coordinate = _repository[current.Id].Coordinate,
-                Size = _repository[current.Id].Size,
-                Id = _repository[current.Id].Id
-            });
+                RectangleModel rectangle = await _repository.GetRectangleByIdAsync(i);
+
+                yield return new RectangleModelMessage()
+                {
+                    Coordinate = rectangle.Coordinate,
+                    Size = rectangle.Size,
+                    Id = rectangle.Id
+                };
+            }
         }
+
         #endregion
 
         #region Private Methods
@@ -116,6 +101,7 @@ namespace ScreenSaverServer.BussinessLogic
                 Y = _rnd.Next(0, (int)_borders.Height - (int)_recDefaultSize.Height)
             });
         }
+
         #endregion
     }
 }

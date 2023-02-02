@@ -8,6 +8,8 @@
         xmlns:vm="clr-namespace:ScreenSaverWpfClient.ViewModel"
         xmlns:converters="clr-namespace:ScreenSaverWpfClient.Infrastructure"
         xmlns:system="clr-namespace:System;assembly=mscorlib"
+        xmlns:i="http://schemas.microsoft.com/xaml/behaviors"
+        xmlns:ie="http://schemas.microsoft.com/expression/2010/interactions"
         mc:Ignorable="d"
         Title="MainWindow" Height="613" Width="848"
         MinWidth="820"
@@ -44,7 +46,7 @@
                        Height="10"
                        Fill="DimGray"/>
             <ItemsControl Grid.Row="0"
-                          ItemsSource="{Binding Path=RectangleCollection, AsyncState=True}"
+                          ItemsSource="{Binding Path=RectangleCollection, AsyncState=true}"
                           Width="{Binding CanvasSize.Width}" Height="{Binding CanvasSize.Height}"
                           Margin="10 10">
                 <ItemsControl.ItemsPanel>
@@ -55,19 +57,25 @@
 
                 <ItemsControl.ItemTemplate>
                     <DataTemplate DataType="{x:Type model:RectangleModel}">
-                        <Rectangle Width="{Binding Size.Width}"
+                        <Rectangle x:Name="rectangle"
+                                   Width="{Binding Size.Width}"
                                    Height="{Binding Size.Height}"
                                    Fill="AliceBlue"
                                    Stroke="Black"
                                    StrokeThickness="1">
                             <Rectangle.Resources>
-                                <TranslateTransform x:Key="CurrentPosition"
-                                                    X="{Binding Coordinate.X}"
-                                                    Y="{Binding Coordinate.Y}"/>
+                                <TranslateTransform x:Key="transformation"/>
                             </Rectangle.Resources>
                             <Rectangle.RenderTransform>
-                                <TranslateTransform X="{Binding Source={StaticResource CurrentPosition}, Path=X}" Y="{Binding Source={StaticResource CurrentPosition}, Path=Y}" />
+                                <TranslateTransform X="{Binding Source={StaticResource transformation}, Path=X}"
+                                                    Y="{Binding Source={StaticResource transformation}, Path=Y}"/>
                             </Rectangle.RenderTransform>
+                            <i:Interaction.Triggers>
+                                <i:EventTrigger EventName="Loaded">
+                                    <i:InvokeCommandAction Command="{Binding StartAnimate, AsyncState=false}"
+                                                           CommandParameter="{Binding ElementName=rectangle}"/>
+                                    </i:EventTrigger>
+                            </i:Interaction.Triggers>
                         </Rectangle>
                     </DataTemplate>
                 </ItemsControl.ItemTemplate>
@@ -75,32 +83,16 @@
         </Canvas>
         <Grid Grid.Row="1">
             <StackPanel Orientation="Horizontal">
-                <Grid>
-                    <StackPanel VerticalAlignment="Stretch" Orientation="Horizontal">
-                        <Label Content="Кол-во прямоугольников:" VerticalAlignment="Center"/>
-                        <TextBox Text="{Binding RectangleCount, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                 MinWidth="50"
-                                 Margin="0 8"
-                                 VerticalAlignment="Center"
-                                 TextAlignment="Center"
-                                 FontSize="14"
-                                 ToolTip="{Binding RelativeSource={RelativeSource self}, Path=(Validation.Errors)[0].ErrorContent[0]}"/>
-                    </StackPanel>
-                </Grid>
-                <Button Content="Begin"
+                <Button Content="Начать"
                         Padding="5"
                         Margin="10"
                         Command="{Binding Path=StartCommand}"/>
-                <Button Content="Stop"
-                        Padding="5"
-                        Margin="10"
-                        Command="{Binding Path=StopCommand}"/>
-                <Button Content="Exit"
-                        HorizontalAlignment="Right"
-                        Padding="5"
-                        Margin="10"
-                        Command="{Binding Path=ExitCommand}"/>
             </StackPanel>
+            <Button Content="Выход"
+                    HorizontalAlignment="Right"
+                    Padding="5"
+                    Margin="10"
+                    Command="{Binding Path=ExitCommand}"/>
         </Grid>
     </Grid>
 </Window>

@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Threading;
 using System.Threading.Tasks;
 
 using ScreenSaver;
@@ -30,29 +29,8 @@ namespace ScreenSaverServer.BussinessLogic
         }
         #endregion
 
-        #region Public Indexers
-        public RectangleModel this[int index]
-        {
-            get
-            {
-                lock (_locker)
-                {
-                    return _rectangles[index];
-                }
-            }
-
-            set
-            {
-                lock (_locker)
-                {
-                    _rectangles[index] = value;
-                }
-            }
-        }
-        #endregion
-
         #region Public properties
-        public IList<RectangleModel> Rectangles => _rectangles;
+        public int Count => _rectangles.Count;
         #endregion
 
         #region Public Methods
@@ -62,12 +40,20 @@ namespace ScreenSaverServer.BussinessLogic
         /// </summary>
         /// <param name="rectangle"></param>
         /// <returns></returns>
-        public int AddRectangle(RectangleModel rectangle)
+        public int AddRectangle(RectanglePoint point, RectangleSize size)
         {
             lock (_locker)
             {
+                RectangleModel rectangle = new()
+                {
+                    Coordinate = point,
+                    Size = size,
+                    Id = _rectangles.Count,
+                    Direction = MoveDirection.None,
+                    Status = RectangleCalculationStatus.CalculationRequired
+                };
                 _rectangles.Add(rectangle);
-                rectangle.Id = _rectangles.Count - 1;
+
                 return rectangle.Id;
             }
         }
@@ -77,7 +63,8 @@ namespace ScreenSaverServer.BussinessLogic
         /// </summary>
         /// <param name="rectangle"></param>
         /// <returns></returns>
-        public async Task<int> AddRectangleAsync(RectangleModel rectangle) => await Task.Run(() => AddRectangle(rectangle));
+        public async Task<int> AddRectangleAsync(RectanglePoint coordinate, RectangleSize size)
+            => await Task.Run(() => AddRectangle(coordinate, size));
 
         /// <summary>
         /// Возвращает координаты прямоугольника
@@ -88,6 +75,7 @@ namespace ScreenSaverServer.BussinessLogic
         {
             lock (_locker)
             {
+                _rectangles[index].Status = RectangleCalculationStatus.CalculationRequired;
                 return _rectangles[index].Coordinate;
             }
         }
@@ -103,12 +91,17 @@ namespace ScreenSaverServer.BussinessLogic
         /// Обновление координат прямоугольника
         /// </summary>
         /// <param name="index"></param>
-        /// <param name="point"></param>
-        public void UpdateCoordinate(int index, RectanglePoint point)
+        /// <param name="value"></param>
+        public void UpdateCoordinate(int index, (RectanglePoint, MoveDirection) value)
         {
             lock (_locker)
             {
-                _rectangles[index].Coordinate = point;
+                if (IsCalculationRequired(index))
+                {
+                    _rectangles[index].Coordinate = value.Item1;
+                    _rectangles[index].Direction = value.Item2;
+                    _rectangles[index].Status = RectangleCalculationStatus.CalculationDone;
+                }
             }
         }
 
@@ -117,33 +110,34 @@ namespace ScreenSaverServer.BussinessLogic
         /// </summary>
         /// <param name="index"></param>
         /// <param name="point"></param>
-        public async Task UpdateCoordinateAsync(int index, RectanglePoint point) =>
-            await Task.Run(() => UpdateCoordinate(index, point));
+        public async Task UpdateCoordinateAsync(int index, (RectanglePoint, MoveDirection) value) =>
+            await Task.Run(() => UpdateCoordinate(index, value));
 
-        /// <summary>
-        /// Обновление направление в котором двигается прямоугольник
-        /// </summary>
-        /// <param name="rectangle"></param>
-        public void UpdateRectangleDirection(RectangleModel rectangle)
+        public RectangleModel GetRectangleById(int index, bool reCalculate = false)
         {
             lock (_locker)
             {
-                _rectangles[rectangle.Id].Direction = rectangle.Direction;
+                if (reCalculate)
+                    _rectangles[index].Status = RectangleCalculationStatus.CalculationRequired;
+                return _rectangles[index];
             }
         }
 
-        /// <summary>
-        /// Обновление направление в котором двигается прямоугольник асинхронно
-        /// </summary>
-        /// <param name="rectangle"></param>
-        public async Task UpdateRectangleDirectionAsync(RectangleModel rectangle) => await Task.Run(() => UpdateRectangleDirection(rectangle));
+        public async Task<RectangleModel> GetRectangleByIdAsync(int index, bool reCalculate = false) =>
+            await Task.Run(() => GetRectangleById(index, reCalculate));
 
-        public void Clear() => _rectangles = new List<RectangleModel>();
+        public bool IsCalculationRequired(int index)
+        {
+            lock (_locker)
+            {
+                return _rectangles[index].Status == RectangleCalculationStatus.CalculationRequired;
+            }
+        }
         #endregion
 
         #region IEnumerable contract implementation
         public IEnumerator<RectangleModel> GetEnumerator() => _rectangles.GetEnumerator();
-        IEnumerator IEnumerable.GetEnumerator() => throw new NotImplementedException(); 
+        IEnumerator IEnumerable.GetEnumerator() => throw new NotImplementedException();
         #endregion
     }
 }

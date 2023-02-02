@@ -14,6 +14,7 @@
     "CanvasWidth": 800,
     "RectangleHeight": 10,
     "RectangleWidth": 10,
-    "ThreadsCount" : 1
+    "ThreadsCount": 5,
+    "RectangleCount": 1000
   }
 }

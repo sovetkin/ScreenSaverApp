@@ -21,22 +21,20 @@ namespace ScreenSaverWpfClient.ViewModel
     internal class MainViewModel : INotifyPropertyChanged, INotifyDataErrorInfo
     {
         #region Private Fields
-        private ObservableCollection<RectangleModel> _collection;
         private int _rectangleCount;
-        private bool _isStartComandRunning;
 
         private CancellationTokenSource _cts = new();
         private RectangleSize _canvasSize;
         private RectangleDataProvider _data;
+        private ObservableCollection<RectangleModel> _rectangleCollection;
         private readonly Dictionary<string, List<string>> _errorsByPropertyName;
         #endregion
 
         #region Public constractions
         public MainViewModel()
         {
-            _collection = new ObservableCollection<RectangleModel>();
+            RectangleCollection = new ObservableCollection<RectangleModel>();
             StartCommand = new AsyncRelayCommand(OnStartCommand);
-            StopCommand = new RelayCommand(OnStopCommand);
             ExitCommand = new RelayCommand(OnExitCommand);
             _data = new();
             _errorsByPropertyName = new Dictionary<string, List<string>>();
@@ -46,28 +44,17 @@ namespace ScreenSaverWpfClient.ViewModel
 
         #region Public Commands
         public ICommand StartCommand { get; }
-        public ICommand StopCommand { get; }
         public ICommand ExitCommand { get; }
         #endregion
 
         #region Public Properties
         public ObservableCollection<RectangleModel> RectangleCollection
         {
-            get => _collection;
+            get => _rectangleCollection;
             set
             {
-                _collection = value;
+                _rectangleCollection = value;
                 OnPropertyChanged();
-            }
-        }
-
-        public int RectangleCount
-        {
-            get => _rectangleCount;
-            set
-            {
-                if (Validate(value) && value != _rectangleCount)
-                    _rectangleCount = value;
             }
         }
 
@@ -88,29 +75,22 @@ namespace ScreenSaverWpfClient.ViewModel
         {
             if (propertyName != null)
                 ErrorsChanged.Invoke(this, new DataErrorsChangedEventArgs(propertyName));
-        } 
-        #endregion
+        }
 
+        public void GetNewCoordinate()
+        {
+
+        }
+        #endregion
 
         #region Private Methods
         private RectangleSize InitilazeCanvasBoundaries() => Task.Run(() => _data.InitilazeCanvasBoundariesAsync()).Result;
 
-        private void OnStopCommand()
-        {
-            _data.GenerateCancelationToken();
-            _isStartComandRunning = false;
-            RectangleCollection = new();
-        }
-
         private async Task OnStartCommand()
         {
-            if (Validate(RectangleCount) && !_isStartComandRunning)
-            {
-                await _data.StartDataStreamingAsync(RectangleCount, RectangleCollection);
-                _isStartComandRunning = true;
-            }
+            await _data.GetRectangleList(RectangleCollection);
         }
-        
+
         private void OnExitCommand()
         {
             _data.GenerateCancelationToken();
@@ -136,19 +116,6 @@ namespace ScreenSaverWpfClient.ViewModel
                 _errorsByPropertyName.Remove(propName);
                 OnErrorChanged(propName);
             }
-        }
-
-        private bool Validate(int value)
-        {
-            ClearErrors(nameof(RectangleCount));
-
-            if (value <= 0)
-            {
-                AddErrors(nameof(RectangleCount), "Старт не возможен при нуле прямоугольников");
-                return false;
-            }
-
-            return true;
         }
         #endregion
 

@@ -2,17 +2,22 @@
 using System.Threading;
 using System.Threading.Tasks;
 
+using Google.Protobuf.WellKnownTypes;
+
 using Grpc.Core;
 
 using ScreenSaver;
+
+using ScreenSaverServer.BussinessLogic.Models;
 
 namespace ScreenSaverServer.BussinessLogic
 {
     public interface IRectangleHandler
     {
-        Task<RectangleModelMessage> GetInitialRectangleAsync();
-        RectanglePoint GetRectangleCurrentPosition(int index);
+        CanvasBoundariesMessage BordersSize { get; }
+        Task<RectanglePoint> GetRectangleCurrentPosition(int index);
         Task StartPathGeneration(CancellationToken token);
-        Task SendResponseMessageAsync(RectangleModelMessage current, IServerStreamWriter<RectangleModelMessage> responseStream);
+        Task GenerateRepository();
+        IAsyncEnumerable<RectangleModelMessage> RectangleStrem();
     }
 }

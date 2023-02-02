@@ -1,7 +1,5 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Collections.ObjectModel;
-using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -21,7 +19,7 @@ namespace ScreenSaverWpfClient.DataAccess
     /// <summary>
     /// Ответственнен за обмен данными с Grpc сервером
     /// </summary>
-    class RectangleDataProvider : IDisposable
+    internal class RectangleDataProvider : IDisposable
     {
         #region Private Fields
         private bool _disposedValue;
@@ -42,31 +40,13 @@ namespace ScreenSaverWpfClient.DataAccess
         /// <summary>
         /// Инициирует токен отмены
         /// </summary>
-        public void GenerateCancelationToken()
+        public void GenerateCancelationToken() => _cts.Cancel();
+
+        public async Task<RectanglePoint> GetNewCoordinate(int id)
         {
-            _cts.Cancel();
-        }
+            var client = new ScreenSaverClient(_channel);
 
-        /// <summary>
-        /// Инициализирует стриминг с gRPC сервером
-        /// </summary>
-        /// <param name="collection"></param>
-        /// <returns></returns>
-        public async Task StartDataStreamingAsync(int rectangleCount, ObservableCollection<RectangleModel> collection)
-        {
-            _collection = collection;
-            _cts = new();
-
-            List<Task> tasks = new();
-
-            for (int i = 0; i < rectangleCount; i++)
-            {
-                Task task = GetCurrentRectanglePosition();
-
-                tasks.Add(task);
-            }
-
-            await Task.WhenAll(tasks);
+            return client.GetNewPosition(new IdRequestMessage() { Id = id });
         }
 
         /// <summary>
@@ -83,105 +63,27 @@ namespace ScreenSaverWpfClient.DataAccess
             return new RectangleSize() { Width = reply.Width, Height = reply.Height };
         }
 
-        /// <summary>
-        /// Обращается к gRPC серверу за совойствами прямоугольника
-        /// </summary>
-        /// <returns></returns>
-        public async Task<RectangleModelMessage> GetNewRectangle()
+        public async Task GetRectangleList(ObservableCollection<RectangleModel> rectangleCollection)
         {
             var client = new ScreenSaverClient(_channel);
+            _cts = new();
+            using AsyncServerStreamingCall<RectangleModelMessage> call = client.GetRectangleList(new Empty());
 
-            return await client.GetRectangleAsync(new Empty());
-        }
-
-        /// <summary>
-        /// Клиентская часть стриминга данных
-        /// </summary>
-        /// <param name="rectangle"></param>
-        /// <param name="token"></param>
-        /// <returns></returns>
-        public async IAsyncEnumerable<RectangleModelMessage> GetRectanglePointAsync(RectangleModelMessage rectangle, [EnumeratorCancellation] CancellationToken token)
-        {
-            var client = new ScreenSaverClient(_channel);
-            using AsyncDuplexStreamingCall<RectangleModelMessage, RectangleModelMessage> stream =
-                client.DuplexRectangleStream(cancellationToken: token);
-
-            while (!token.IsCancellationRequested)
+            while (await call.ResponseStream.MoveNext())
             {
-                await WriteToStreamAsync(stream.RequestStream, rectangle);
+                RectangleModelMessage reply = call.ResponseStream.Current;
 
-                yield return await ReadFromStreamAsync(stream.ResponseStream);
-            }
-        }
-        #endregion
+                rectangleCollection.Add(new RectangleModel()
+                {
+                    Coordinate = reply.Coordinate,
+                    Size = reply.Size,
+                    Id = reply.Id
+                });
 
-        #region Private Methods
-        /// <summary>
-        /// При первом обращении создает прямоугольник.
-        /// Обеспечивает обновление координат прямоугольника.
-        /// </summary>
-        /// <returns></returns>
-        private async Task GetCurrentRectanglePosition()
-        {
-            Task<(int, RectangleModelMessage)> task = CreateNewRectangle();
-
-            (int, RectangleModelMessage) result = await task;
-
-            int index = result.Item1;
-            RectangleModelMessage rectangle = result.Item2;
-
-            await foreach (RectangleModelMessage item in GetRectanglePointAsync(rectangle, _cts.Token))
-            {
-                rectangle = item;
-                _collection[index].Coordinate = rectangle.Coordinate;
+                await Task.Delay(TimeSpan.FromMilliseconds(500));
             }
         }
 
-        /// <summary>
-        /// Обращается к gRPC серверу за координатами создаваемого прямоугольника и создает его
-        /// </summary>
-        /// <returns></returns>
-        private async Task<(int, RectangleModelMessage)> CreateNewRectangle()
-        {
-            RectangleModelMessage rectangle;
-
-            rectangle = await GetNewRectangle();
-
-            RectangleModel model = new()
-            {
-                Coordinate = rectangle.Coordinate,
-                Size = rectangle.Size,
-                Id = rectangle.Id
-            };
-
-            _collection.Add(model);
-
-            return (_collection.IndexOf(model), rectangle);
-        }
-
-        /// <summary>
-        /// Считывает данные из стриминга
-        /// </summary>
-        /// <param name="responseStream"></param>
-        /// <returns></returns>
-        private async Task<RectangleModelMessage> ReadFromStreamAsync(IAsyncStreamReader<RectangleModelMessage> responseStream)
-        {
-            while (await responseStream.MoveNext())
-            {
-                return responseStream.Current;
-            }
-
-            return responseStream.Current;
-        }
-
-        /// <summary>
-        /// записывает данные в стриминг
-        /// </summary>
-        /// <param name="requestStream"></param>
-        /// <param name="rectangle"></param>
-        /// <returns></returns>
-        private async Task WriteToStreamAsync(IClientStreamWriter<RectangleModelMessage> requestStream, RectangleModelMessage rectangle) =>
-            await requestStream.WriteAsync(rectangle);
         #endregion
 
         #region IDisposable contract implementation
@@ -200,7 +102,7 @@ namespace ScreenSaverWpfClient.DataAccess
         }
 
         public void Dispose() => Dispose(true);
-        
+
         ~RectangleDataProvider()
         {
             Dispose(true);

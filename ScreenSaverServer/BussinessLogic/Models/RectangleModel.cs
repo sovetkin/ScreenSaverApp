@@ -13,5 +13,6 @@ namespace ScreenSaverServer.BussinessLogic.Models
         public RectangleSize Size { get; set; }
         public RectanglePoint Coordinate { get; set; }
         public MoveDirection Direction { get; set; }
+        public RectangleCalculationStatus Status { get; set; }
     }
 }

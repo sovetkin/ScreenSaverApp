@@ -9,26 +9,13 @@ package saver;
 service ScreenSaver {
   rpc GetCanvasBoundaries (google.protobuf.Empty) returns (CanvasBoundariesMessage);
   
-  rpc GetNewPosition (IdRequestMessage) returns (stream RectanglePoint);
-  rpc GetRectangleList (RectangleCountMessage) returns (stream RectangleModelMessage);
-  
-  rpc GetRectangle (google.protobuf.Empty) returns (RectangleModelMessage);
-  rpc GetRectangleCurrentPosition (IdRequestMessage) returns (stream RectanglePoint);
-
-  rpc DuplexRectangleStream (stream RectangleModelMessage) returns ( stream RectangleModelMessage);
-}
-
-message RectangleCountMessage {
-    int32 count = 1;
+  rpc GetNewPosition (IdRequestMessage) returns (RectanglePoint);
+  rpc GetRectangleList (google.protobuf.Empty) returns (stream RectangleModelMessage);
 }
 
 message CanvasBoundariesMessage {
   double width = 1;
   double height = 2;
-}
-
-message ReplyModel {
-    repeated RectangleModelMessage list = 1;
 }
 
 message RectangleModelMessage {
